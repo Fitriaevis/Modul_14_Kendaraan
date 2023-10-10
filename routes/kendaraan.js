@@ -86,35 +86,34 @@ router.post('/store', upload.single("gambar_kendaraan"), [
     });
 });
 
-router.get('/(:id)', function (req, res){
+router.get('/:id', function (req, res) {
     let id = req.params.id;
-    SELECT (`a.no_pol, a.nama_kendaraan, b.nama_transmisi as transmisi, a.gambar_kendaraan from kendaraan a join transmisi b on b.id_transmisi=a.id_transmisi WHERE no_pol = ${id}`, function(err, rows) {
+    connection.query(`SELECT a.no_pol, a.nama_kendaraan, b.nama_transmisi as transmisi, a.gambar_kendaraan FROM kendaraan a JOIN transmisi b ON b.id_transmisi=a.id_transmisi WHERE no_pol = ${id}`, function (err, rows) {
         if (err) {
             return res.status(500).json({
                 status: false,
                 message: 'Server Error',
-            })
+                error: err
+            });
         }
         if (rows.length <= 0) {
             return res.status(404).json({
                 status: false,
                 message: 'Not Found',
-            })
-        }
-        else{
+            });
+        } else {
             return res.status(200).json({
                 status: true,
                 message: 'Data Kendaraan',
                 data: rows[0]
-            })
+            });
         }
-    })
-})
+    });
+});
+
 
 
 router.patch('/update/:id', upload.single("gambar_kendaraan"), [
-    //validation
-    body('no_pol').notEmpty(),
     body('nama_kendaraan').notEmpty(),
     body('id_transmisi').notEmpty()
 ], (req, res) => {
@@ -125,34 +124,38 @@ router.patch('/update/:id', upload.single("gambar_kendaraan"), [
         });
     }
     let id = req.params.id;
-        //lakukan check apakah ada file yang diunggah
-    let gambar_kendaraan = req.file ? req.file.filename : null;
-    connection.query(`SELECT * FROM  kendaraan WHERE no_pol = ${id}`, function (err, rows) {
+
+    // Check if the file exists before attempting to unlink it
+    connection.query(`SELECT * FROM kendaraan WHERE no_pol = ${id}`, function(err, rows) {
         if (err) {
             return res.status(500).json({
                 status: false,
                 message: 'Server Error',
             });
-        }if (rows.length ===0) {
+        }
+        if (rows.length === 0) {
             return res.status(404).json({
                 status: false,
-                message: 'Data Kendaraan tidak ditemukan',
+                message: 'Not Found',
             });
         }
+
         const nama_kendaraanFileLama = rows[0].gambar_kendaraan;
 
-        //hapus file lama jika ada
-        if (nama_kendaraanFileLama && gambar_kendaraan) {
+        if (nama_kendaraanFileLama) {
             const pathFileLama = path.join(__dirname, '../public/images', nama_kendaraanFileLama);
-            fs.unlinkSync(pathFileLama);
+
+            // Check if the file exists before attempting to unlink it
+            if (fs.existsSync(pathFileLama)) {
+                fs.unlinkSync(pathFileLama);
+            }
         }
 
         let Data = {
-            no_pol: req.body.no_pol,
             nama_kendaraan: req.body.nama_kendaraan,
-            id_transmisi: req.body.id_transmisi,
-            gambar_kendaraan : gambar_kendaraan
+            id_transmisi: req.body.id_transmisi
         };
+
         connection.query(`UPDATE kendaraan SET ? WHERE no_pol = ${id}`, Data, function (err, rows) {
             if (err) {
                 return res.status(500).json({
@@ -162,7 +165,7 @@ router.patch('/update/:id', upload.single("gambar_kendaraan"), [
             } else {
                 return res.status(200).json({
                     status: true,
-                    message: 'Data Kendaraan berhasil diperbarui',
+                    message: 'Update success..!'
                 });
             }
         });
